@@ -590,3 +590,167 @@ ul.bullets li::before { content: ""; position: absolute; left: 0; top: 15px; wid
 @media (min-width: 861px) and (max-width: 1080px) {
   .mock-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ============================================================
+   HIGH-TECH DARK THEME (override layer)
+   Re-skins every module surface from cream "print" to dark glass
+   so the app interiors match the OS shell. Brand red stays the
+   accent, now with glow. Data + interactions untouched.
+   ============================================================ */
+:root {
+  --bg:        #0b0c0e;
+  --surface:   #131519;
+  --surface-2: #181b21;
+  --surface-3: #1f232a;
+  --hair:      rgba(255,255,255,.08);
+  --hair2:     rgba(255,255,255,.15);
+  --text:      #f1efe9;
+  --text-dim:  #8d897f;
+  --red-br:    #ef2540;
+  --glow-red:  0 0 0 1px rgba(200,16,46,.35), 0 0 26px rgba(200,16,46,.30);
+  /* remap shared tokens so existing rules theme themselves */
+  --line:      rgba(255,255,255,.08);
+  --muted:     #8d897f;
+  --cream-ink: #eceae3;
+  --cream-deep: #23262c;   /* now a dark track tone */
+  --done-bg:   rgba(63,176,94,.14);
+  --progress-bg: rgba(224,165,42,.14);
+  --blocked-bg: rgba(239,37,64,.16);
+  --idle-bg:   rgba(255,255,255,.06);
+  --done:      #57c47b;
+  --progress:  #e3ad36;
+  --idle:      #b7b0a3;
+}
+
+/* App canvas: deep background, telemetry grid, red horizon glow */
+.app-screen {
+  background:
+    radial-gradient(1100px 520px at 82% -8%, rgba(200,16,46,.13), transparent 62%),
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px) 0 0 / 100% 36px,
+    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px) 0 0 / 36px 100%,
+    var(--bg);
+  color: var(--text);
+}
+/* one-time scan sweep when an app opens */
+.app-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 8;
+  background: linear-gradient(115deg, transparent 42%, rgba(200,16,46,.10) 50%, transparent 58%);
+  transform: translateX(-120%);
+}
+.app-screen.shown::after { animation: sweep 1.05s cubic-bezier(.2,.7,.2,1) .08s 1 forwards; }
+@keyframes sweep { to { transform: translateX(120%); } }
+
+.stage {
+  background:
+    radial-gradient(900px 500px at 12% 0%, rgba(200,16,46,.10), transparent 60%),
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px) 0 0 / 100% 40px,
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px) 0 0 / 40px 100%,
+    var(--ink-os);
+}
+
+.app-bar { background: rgba(12,13,15,.72); border-bottom: 1px solid var(--hair); }
+.app-bar .back { background: var(--surface-2); color: var(--text); border-color: var(--hair2); }
+.app-bar .back:hover { background: var(--red); color: var(--white); border-color: var(--red); box-shadow: var(--glow-red); }
+.app-bar .ab-icon { background: var(--red); color: var(--white); box-shadow: 0 0 18px rgba(200,16,46,.4); }
+
+/* Headings + labels */
+.view-head h1 { color: var(--text); text-shadow: 0 0 30px rgba(255,255,255,.06); }
+.view-head p.lede { color: var(--text-dim); }
+.section-label::after { background: linear-gradient(90deg, var(--hair2), transparent); }
+.mono { color: var(--text-dim); }
+
+/* Surfaces -> dark cards with hairline + subtle inner highlight */
+.panel, .rock-card, .rock-block, .auto-card, .funnel, .chart-wrap, .spotlight,
+.matrix, .email-row, .focus-strip, .cadence, .alert, .email-mock, .tile.light {
+  background: var(--surface);
+  border-color: var(--hair);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.panel.cream { background: var(--surface-2); }
+.panel.ink { background: linear-gradient(160deg, #15171c, #0e0f12); border-color: var(--hair2); box-shadow: var(--glow-red); }
+.tile { background: linear-gradient(160deg, #16181d, #0f1013); }
+.tile.light { color: var(--text); }
+.tile.light .mono, .tile.light .sub { color: var(--text-dim); }
+.tile .num, .pct-row .pct, .kpi .kpi-num { text-shadow: 0 0 22px rgba(255,255,255,.10); }
+
+/* Tables */
+.matrix thead th { background: var(--surface-2); color: var(--text-dim); border-color: var(--hair); }
+.matrix th, .matrix td { border-color: var(--hair); }
+.matrix tbody tr:hover { background: rgba(255,255,255,.035); }
+.email-row:hover { background: rgba(255,255,255,.035); }
+.email-mock .em-body { background: var(--surface-2); border-color: var(--hair); }
+.email-mock .em-art { background: var(--surface-3); color: var(--text-dim); }
+.email-mock .em-top { background: #0e0f12; }
+
+/* Focus strip / cadence / calendar cells */
+.focus-item { border-color: var(--hair); }
+.cadence th, .cadence td { border-color: var(--hair); }
+.cadence thead th, .cadence td.row-label { background: var(--surface-2); color: var(--text-dim); }
+.cal-day { background: var(--surface); border-color: var(--hair); }
+.cal-day.weekend { background: var(--surface-2); }
+.cal-day .dnum { color: var(--text); }
+.cal-day .so-row { color: var(--text-dim); }
+.scanner-box textarea { background: #0e0f12; color: var(--text); border-color: var(--hair2); }
+.cad-teams { background: #2b3340; color: #e3e7ee; }
+.cad-retail { background: var(--blocked-bg); color: var(--red-br); border: 1px solid rgba(239,37,64,.4); }
+.cad-fuze { background: #33272f; color: #ffc3cd; }
+.cad-social { background: var(--surface-2); color: var(--text-dim); border-color: var(--hair); }
+.cad-none { color: var(--text-dim); }
+.heat-cell .hv { color: var(--text); }
+
+/* Bars + tracks -> dark with glowing fills */
+.bar, .mix-track, .funnel-track, .cap-track, .sow-bar, .heat-cell, .rb-head .mini-bar { background: rgba(255,255,255,.08); }
+.bar > span { box-shadow: 0 0 14px rgba(200,16,46,.5); }
+.mix-track .actual { background: linear-gradient(90deg, #2b2f37, #4a515e); }
+.mix-track .target { background: var(--red-br); box-shadow: 0 0 10px rgba(239,37,64,.7); }
+.funnel-track .fn-val { color: var(--white); mix-blend-mode: normal; }
+.cap-track .ceil { background: var(--white); }
+.cap-track .ceil::after { color: var(--text-dim); }
+
+/* Filter + tab controls */
+.fbtn, .tabs button { background: var(--surface-2); color: var(--text-dim); border-color: var(--hair); }
+.fbtn:hover { color: var(--text); border-color: var(--hair2); }
+.fbtn.on, .tabs button.on { background: var(--red); color: var(--white); border-color: var(--red); box-shadow: var(--glow-red); }
+.tabs { background: var(--surface); border-color: var(--hair); }
+.tabs button { border-right-color: var(--hair); }
+
+/* Chips -> translucent glow pills */
+.chip { background: rgba(255,255,255,.05); border: 1px solid var(--hair); }
+.chip.done, .chip.active, .chip.live { color: var(--done); background: var(--done-bg); border-color: rgba(87,196,123,.3); }
+.chip.in_progress, .chip.scheduled { color: var(--progress); background: var(--progress-bg); border-color: rgba(227,173,54,.3); }
+.chip.blocked { color: var(--red-br); background: var(--blocked-bg); border-color: rgba(239,37,64,.35); }
+.chip.not_started, .chip.planned { color: var(--idle); background: var(--idle-bg); border-color: var(--hair); }
+.chip.ended, .chip.idea { color: var(--text-dim); background: rgba(255,255,255,.05); border-color: var(--hair); }
+
+/* Tags + badges */
+.tier-tag { border-color: var(--hair2); color: var(--text-dim); }
+.tier-tag.Anchor { background: var(--red); color: var(--white); border-color: var(--red); box-shadow: 0 0 14px rgba(200,16,46,.4); }
+.tier-tag.Core { background: var(--surface-3); color: var(--text); }
+.tier-tag.Developing { background: var(--surface-2); color: var(--text-dim); }
+.tag { background: var(--surface-2); color: var(--text-dim); border-color: var(--hair); }
+.placeholder-tag { color: var(--progress); background: var(--progress-bg); border-color: rgba(227,173,54,.4); }
+
+/* Alerts */
+.alert { background: var(--surface); }
+.alert .a-body span { color: var(--text-dim); }
+
+/* Scan badge */
+.scan.clean { color: var(--done); border-color: rgba(87,196,123,.5); background: var(--done-bg); }
+.scan.dirty { color: var(--red-br); border-color: rgba(239,37,64,.5); background: var(--blocked-bg); }
+
+/* Notes + misc text */
+.note-line { color: var(--text-dim); border-left-color: var(--hair2); }
+.note-line.hot { color: var(--text); border-left-color: var(--red); }
+.leaf .lf-owner, .matrix .num-cell { color: var(--text-dim); }
+.spotlight .name, .auto-card h3, .rock-card h3, .rb-head .rb-title { color: var(--text); }
+.auto-card .spec { background: #0e0f12; color: var(--text-dim); }
+ul.bullets li { color: var(--text); }
+
+/* Springboard tiles: add glow + glass sheen for the high-tech read */
+.app-tile::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 0 0 1px rgba(255,255,255,.04); }
+.app-tile.ink:hover { box-shadow: 0 22px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08); }
+.app-tile.cream:hover { box-shadow: 0 22px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.18); }
+.app-tile.red:hover { box-shadow: 0 22px 54px rgba(200,16,46,.45), 0 0 0 1px rgba(255,255,255,.12); }
+.app-tile .ti-icon { box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+.sb-hello h2 { text-shadow: 0 0 34px rgba(255,255,255,.08); }

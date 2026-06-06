@@ -116,20 +116,20 @@ window.AVBJune = (function () {
   const sourceFlag =
     'The brand guide doc still contains "Real quote in 24 hours" in its sales examples. Strip that before any of it gets reused. Use verbatim locked phrases, never the contracted forms.';
 
-  /* Pillar palette for the calendar + charts (brand-bound). */
+  /* Pillar palette for the calendar + charts (dark-theme friendly). */
   const pillarColor = {
-    "Education": "var(--cream-ink)",
-    "Product": "var(--ink)",
-    "Product in use": "var(--ink)",
-    "Club Spotlight": "var(--red)",
-    "Win + BTS": "var(--progress)",
-    "Customer win + BTS": "var(--progress)",
-    "CustomFuze": "var(--red-deep)",
-    "CustomFuze drop": "var(--red-deep)",
-    "Tournament / UGC": "var(--idle)",
-    "Brand": "var(--done)",
+    "Education": "#cdc7ba",
+    "Product": "#8b93a3",
+    "Product in use": "#8b93a3",
+    "Club Spotlight": "#ef2540",
+    "Win + BTS": "#e3ad36",
+    "Customer win + BTS": "#e3ad36",
+    "CustomFuze": "#ff6178",
+    "CustomFuze drop": "#ff6178",
+    "Tournament / UGC": "#b7b0a3",
+    "Brand": "#57c47b",
   };
-  const trackColor = { Teams: "var(--ink)", Retail: "var(--red)", CustomFuze: "var(--red-deep)" };
+  const trackColor = { Teams: "#8b93a3", Retail: "#ef2540", CustomFuze: "#ff6178" };
 
   /* ---- DAY MAP: build a 1..30 lookup of {emailTrack, emailSubject, social} ---- */
   function buildDayMap() {

@@ -559,7 +559,7 @@
     });
     const names = Object.keys(sources).sort(function (a, c) { return sources[c].total - sources[a].total; });
     const max = Math.max.apply(null, names.map(function (n) { return sources[n].total; }));
-    const catColor = { Team: "var(--red)", Retail: "var(--ink)", Shared: "var(--cream-deep)" };
+    const catColor = { Team: "var(--red)", Retail: "#cfc9bc", Shared: "#6b7280" };
 
     const W = 760, rowH = 38, gap = 14, padL = 110, padR = 70;
     const Hsvg = names.length * (rowH + gap);
@@ -576,7 +576,7 @@
       const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
       t.setAttribute("x", x); t.setAttribute("y", y); t.textContent = s;
       t.setAttribute("font-family", "var(--mono)"); t.setAttribute("font-size", cls === "lab" ? "11" : "12");
-      t.setAttribute("fill", cls === "lab" ? "#6f6759" : "#1a1a1a");
+      t.setAttribute("fill", cls === "lab" ? "#8d897f" : "#f1efe9");
       if (cls === "val") { t.setAttribute("text-anchor", "start"); t.setAttribute("font-weight", "700"); }
       return t;
     }
@@ -601,8 +601,8 @@
     wrap.appendChild(svg);
     wrap.appendChild(h("div", { class: "legend" }, [
       legendItem("var(--red)", "Team"),
-      legendItem("var(--ink)", "Retail"),
-      legendItem("var(--cream-deep)", "Shared"),
+      legendItem("#cfc9bc", "Retail"),
+      legendItem("#6b7280", "Shared"),
     ]));
     return wrap;
   }
@@ -844,7 +844,7 @@
     ]);
   }
   function pillarChip(pillar) {
-    return h("span", { class: "chip", style: "background:var(--cream-base);color:var(--cream-ink)" }, [
+    return h("span", { class: "chip", style: "background:rgba(255,255,255,.05);color:var(--text)" }, [
       h("span", { class: "d", style: "background:" + (J.pillarColor[pillar] || "var(--muted)") }),
       document.createTextNode(pillar),
     ]);
@@ -872,7 +872,7 @@
   }
 
   function monthCalendar() {
-    const wrap = h("div", { class: "panel", style: "background:var(--cream-base)" });
+    const wrap = h("div", { class: "panel", style: "background:var(--bg)" });
     const cal = h("div", { class: "cal" });
     ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach(function (d) { cal.appendChild(h("div", { class: "cal-head" }, d)); });
     for (let d = 1; d <= 30; d++) {
@@ -899,9 +899,9 @@
   }
   function calLegend() {
     return h("div", { class: "legend", style: "margin-top:14px" }, [
-      legendItem("var(--ink)", "Teams email"),
+      legendItem("#8b93a3", "Teams email"),
       legendItem("var(--red)", "Retail email"),
-      legendItem("var(--cream-deep)", "CustomFuze email"),
+      legendItem("#ff6178", "CustomFuze email"),
       legendItem("var(--done)", "Brand"),
       legendItem("var(--progress)", "Win + BTS"),
       legendItem("var(--idle)", "Tournament / UGC"),
@@ -1065,11 +1065,11 @@
     });
     const center = document.createElementNS(NS, "text");
     center.setAttribute("x", cx); center.setAttribute("y", cy - 2); center.setAttribute("text-anchor", "middle");
-    center.setAttribute("font-size", "30"); center.setAttribute("font-weight", "700"); center.setAttribute("fill", "#1a1a1a");
+    center.setAttribute("font-size", "30"); center.setAttribute("font-weight", "700"); center.setAttribute("fill", "#f1efe9");
     center.textContent = String(total);
     const sub = document.createElementNS(NS, "text");
     sub.setAttribute("x", cx); sub.setAttribute("y", cy + 16); sub.setAttribute("text-anchor", "middle");
-    sub.setAttribute("font-size", "9"); sub.setAttribute("fill", "#6f6759"); sub.setAttribute("font-family", "var(--mono)");
+    sub.setAttribute("font-size", "9"); sub.setAttribute("fill", "#8d897f"); sub.setAttribute("font-family", "var(--mono)");
     sub.textContent = "FEED POSTS";
     svg.appendChild(center); svg.appendChild(sub);
 
@@ -1083,9 +1083,9 @@
   }
   function trackSplit() {
     const data = [
-      { label: "Teams", value: J.counts.teams, color: "var(--ink)", note: "Mon + Wed" },
+      { label: "Teams", value: J.counts.teams, color: "#8b93a3", note: "Mon + Wed" },
       { label: "Retail", value: J.counts.retail, color: "var(--red)", note: "Tue + Thu" },
-      { label: "CustomFuze", value: J.counts.customfuze, color: "var(--red-deep)", note: "Fri" },
+      { label: "CustomFuze", value: J.counts.customfuze, color: "#ff6178", note: "Fri" },
     ];
     const max = Math.max.apply(null, data.map(function (d) { return d.value; }));
     const wrap = h("div", { class: "chart-wrap" });
