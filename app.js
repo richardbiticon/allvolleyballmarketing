@@ -1552,13 +1552,20 @@
 
   function clock() {
     const c = document.getElementById("clock"), dc = document.getElementById("dock-clock");
+    // Local timezone abbreviation for wherever this is opened (US -> CDT/EST/PST, etc.)
+    let tzAbbr = "";
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date());
+      const p = parts.find(function (x) { return x.type === "timeZoneName"; });
+      tzAbbr = p ? p.value : "";
+    } catch (e) {}
     function stamp() {
       const d = new Date();
       const hh = String(d.getHours()).padStart(2, "0");
       const mm = String(d.getMinutes()).padStart(2, "0");
       const ss = String(d.getSeconds()).padStart(2, "0");
-      if (c) c.textContent = hh + ":" + mm + ":" + ss;
-      if (dc) dc.textContent = hh + ":" + mm;
+      if (c) c.textContent = hh + ":" + mm + ":" + ss + (tzAbbr ? " " + tzAbbr : "");
+      if (dc) dc.textContent = hh + ":" + mm + (tzAbbr ? " " + tzAbbr : "");
     }
     stamp(); setInterval(stamp, 1000);
   }
