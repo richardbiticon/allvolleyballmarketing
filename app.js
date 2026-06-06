@@ -90,6 +90,26 @@
     v.appendChild(head("OVERVIEW", "Quarter at a glance",
       "The quarter's Rocks, the live test, and the most exposed open items. Everything routes back to: volleyball only. That is the whole business."));
 
+    // Account intelligence callout (the B2B engine)
+    if (window.AVBMetrics) {
+      const sm = window.AVBMetrics.summary();
+      v.appendChild(sectionLabel("THE B2B ENGINE"));
+      v.appendChild(h("div", { class: "panel ink", onclick: function () { location.hash = "#/accounts"; }, style: "cursor:pointer" }, [
+        h("div", { style: "display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px" }, [
+          h("span", { class: "mono", style: "color:var(--red)" }, "/ ACCOUNT INTELLIGENCE"),
+          h("strong", { style: "font-size:17px" }, "The book of business"),
+        ]),
+        h("p", { style: "color:var(--muted-ink);max-width:74ch" }, "Clubs are the unit of value, not orders. Pipeline, reorder cadence, and CustomFuze capacity in one place."),
+        h("div", { style: "display:flex;gap:22px;margin-top:14px;flex-wrap:wrap;align-items:flex-end" }, [
+          miniStat(money(sm.bookValue), "book value"),
+          miniStat(money(sm.pipelineValue), "open pipeline"),
+          miniStat(sm.winRate + "%", "win rate"),
+          miniStat(String(sm.atRiskCount), "accounts at risk"),
+          h("a", { href: "#/accounts", class: "fbtn on", style: "margin-left:auto;text-decoration:none" }, "Open accounts"),
+        ]),
+      ]));
+    }
+
     // Rock progress cards
     v.appendChild(sectionLabel("THE ROCKS"));
     const rg = h("div", { class: "grid g4" });
@@ -1084,10 +1104,259 @@
   }
 
   /* ============================================================
+     VIEW: ACCOUNT INTELLIGENCE (the B2B engine, crown jewel)
+     Reads the semantic layer (window.AVBMetrics). Never recomputes.
+     ============================================================ */
+  const M = window.AVBMetrics;
+  let acctFilter = "all";
+  let acctSort = "value";
+
+  function viewAccounts() {
+    const v = h("div", { class: "view" });
+    v.appendChild(head("ACCOUNTS", "Account intelligence",
+      "The book of business: clubs are the unit of value, not orders. Marketing leads to a quote, a consultative close, seasonal reorders, then CustomFuze production. As of June 6, seed data."));
+
+    const s = M.summary();
+
+    // KPI strip (two rows)
+    v.appendChild(h("div", { class: "grid g4", style: "margin-bottom:16px" }, [
+      tile("dark", "BOOK VALUE", money(s.bookValue), "trailing 12-mo gear spend"),
+      tile("light", "ACTIVE ACCOUNTS", s.activeAccounts, s.newThisQuarter + " new this quarter"),
+      tile("light", "OPEN PIPELINE", money(s.pipelineValue), money(s.weightedPipeline) + " weighted"),
+      tile("light", "AVG SHARE OF WALLET", s.avgShareOfWallet + "%", "room to grow inside accounts"),
+    ]));
+    v.appendChild(h("div", { class: "grid g4", style: "margin-bottom:8px" }, [
+      tile("light", "WIN RATE", s.winRate + "%", "quote to close, trailing"),
+      tile("light", "AVG CYCLE", s.avgCycleDays + " days", "quote sent to close"),
+      tile("light", "AT RISK", s.atRiskCount, "accounts off cadence"),
+      tile("light", "REORDER RADAR", s.atRiskCount, "owners to follow up"),
+    ]));
+    v.appendChild(h("div", { class: "note-line" }, [
+      h("span", { class: "placeholder-tag" }, "PLACEHOLDER"),
+      document.createTextNode("  Seed figures shaped like the future warehouse schema. Wire the quote and order data to make live."),
+    ]));
+
+    // Pipeline funnel + quotes
+    v.appendChild(sectionLabel("QUOTE PIPELINE"));
+    v.appendChild(h("div", { class: "grid g2" }, [pipelineFunnel(), pipelineNote(s)]));
+    v.appendChild(quotesTable());
+
+    // Reorder radar (actionable)
+    v.appendChild(sectionLabel("REORDER RADAR"));
+    const risk = M.atRisk();
+    if (!risk.length) {
+      v.appendChild(h("div", { class: "panel cream" }, "Every account is inside its reorder cadence."));
+    } else {
+      const radar = h("div");
+      risk.forEach(function (a) {
+        radar.appendChild(h("div", { class: "alert " + (a.status === "at_risk" ? "hot" : "warn") }, [
+          h("span", { class: "a-mark" }, a.status === "at_risk" ? "AT RISK" : "OVERDUE"),
+          h("div", { class: "a-body" }, [
+            h("strong", null, a.name + "  /  " + money(a.annualSpend) + " book"),
+            h("span", null, a.daysOverdue + " days past a " + a.cadenceDays + " day cadence. Owner " + a.owner + " to follow up. " + a.shareOfWallet + "% share of wallet."),
+          ]),
+        ]));
+      });
+      v.appendChild(radar);
+    }
+
+    // Account health table (filter + sort)
+    v.appendChild(sectionLabel("ACCOUNT HEALTH"));
+    v.appendChild(accountControls(v));
+    const tableMount = h("div", { id: "acct-table" });
+    v.appendChild(tableMount);
+    renderAccountsTable(tableMount);
+
+    // CustomFuze production capacity
+    v.appendChild(sectionLabel("CUSTOMFUZE PRODUCTION"));
+    v.appendChild(h("p", { class: "lede", style: "margin-top:-6px;margin-bottom:16px" },
+      "Lead time is four to six weeks. Due dates are the team's first whistle. Watch the weeks where production load runs over capacity."));
+    v.appendChild(h("div", { class: "grid g2" }, [fuzeTable(), capacityChart()]));
+
+    // Seasonality
+    v.appendChild(sectionLabel("SEASONALITY"));
+    v.appendChild(h("p", { class: "lede", style: "margin-top:-6px;margin-bottom:16px" },
+      "Teams order-volume index by month. June opens the window into the late-summer fall peak. Market ahead of it, not into it."));
+    v.appendChild(seasonalityHeat());
+
+    animateBars(v);
+    requestAnimationFrame(function () {
+      v.querySelectorAll("[data-w]").forEach(function (el) { el.style.width = el.getAttribute("data-w") + "%"; });
+      v.querySelectorAll("[data-ceil]").forEach(function (el) { el.style.left = el.getAttribute("data-ceil") + "%"; });
+    });
+    return v;
+  }
+
+  function pipelineFunnel() {
+    const stages = M.pipelineByStage();
+    const max = Math.max.apply(null, stages.map(function (s) { return s.value || 1; }));
+    const wrap = h("div", { class: "funnel" });
+    wrap.appendChild(h("div", { class: "mono", style: "margin-bottom:16px" }, "/ OPEN BY STAGE"));
+    stages.forEach(function (st) {
+      wrap.appendChild(h("div", { class: "funnel-row" }, [
+        h("div", { class: "funnel-head" }, [
+          h("span", { class: "fn-stage" }, st.stage),
+          h("span", { class: "fn-meta" }, st.count + " quotes  /  " + Math.round(st.prob * 100) + "% win prob"),
+        ]),
+        h("div", { class: "funnel-track" }, [
+          h("span", { "data-w": Math.round((st.value / max) * 100) }),
+          h("span", { class: "fn-val" }, money(st.value)),
+        ]),
+      ]));
+    });
+    return wrap;
+  }
+  function pipelineNote(s) {
+    return h("div", { class: "panel ink" }, [
+      h("div", { class: "mono" }, "/ PIPELINE HEALTH"),
+      h("div", { style: "display:flex;align-items:baseline;gap:12px;margin:14px 0 4px" }, [
+        h("span", { style: "font-size:38px;font-weight:700" }, money(s.pipelineValue)),
+        h("span", { style: "color:var(--muted-ink)" }, "open"),
+      ]),
+      h("p", { style: "color:var(--muted-ink);max-width:46ch" },
+        money(s.weightedPipeline) + " weighted by stage. Win rate " + s.winRate + "% on a " + s.avgCycleDays + " day average cycle. Pricing stays consultative. No turnaround promise."),
+    ]);
+  }
+  function quotesTable() {
+    const stageChip = { "Lead": "not_started", "Quote sent": "scheduled", "Negotiation": "in_progress", "Verbal yes": "active" };
+    const t = h("table", { class: "matrix", style: "margin-top:16px" });
+    t.appendChild(h("thead", null, h("tr", null, [th("Account"), th("Type"), th("Value"), th("Stage"), th("Owner"), th("Age"), th("Expected close")])));
+    const tb = h("tbody");
+    M.openQuotes().slice().sort(function (a, b) { return b.value - a.value; }).forEach(function (q) {
+      tb.appendChild(h("tr", null, [
+        h("td", { class: "strong" }, [document.createTextNode(q.account), q.prospect ? h("span", { class: "tier-tag", style: "margin-left:8px" }, "prospect") : null]),
+        h("td", { class: "mono", style: "font-size:10px" }, q.kind),
+        h("td", { class: "num-cell strong" }, money(q.value)),
+        h("td", null, chip(stageChip[q.stage], q.stage)),
+        h("td", { class: "mono", style: "font-size:10px" }, q.owner),
+        h("td", { class: "num-cell" }, q.ageDays + "d"),
+        h("td", { class: "mono", style: "font-size:10px" }, q.expectedClose.slice(5)),
+      ]));
+    });
+    t.appendChild(tb);
+    return t;
+  }
+
+  function accountControls(rootView) {
+    const bar = h("div", { class: "filterbar" });
+    bar.appendChild(h("span", { class: "fb-label" }, "Status"));
+    [["all", "All"], ["active", "Active"], ["overdue", "Overdue"], ["at_risk", "At risk"]].forEach(function (f) {
+      const b = h("button", { class: "fbtn" + (acctFilter === f[0] ? " on" : "") }, f[1]);
+      b.addEventListener("click", function () {
+        acctFilter = f[0];
+        bar.querySelectorAll(".fbtn[data-grp='st']").forEach(function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        renderAccountsTable(document.getElementById("acct-table"));
+      });
+      b.setAttribute("data-grp", "st");
+      bar.appendChild(b);
+    });
+    bar.appendChild(h("span", { class: "fb-label", style: "margin-left:14px" }, "Sort"));
+    [["value", "Book value"], ["overdue", "Most overdue"], ["sow", "Share of wallet"]].forEach(function (f) {
+      const b = h("button", { class: "fbtn" + (acctSort === f[0] ? " on" : "") }, f[1]);
+      b.addEventListener("click", function () {
+        acctSort = f[0];
+        bar.querySelectorAll(".fbtn[data-grp='so']").forEach(function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        renderAccountsTable(document.getElementById("acct-table"));
+      });
+      b.setAttribute("data-grp", "so");
+      bar.appendChild(b);
+    });
+    return bar;
+  }
+  function renderAccountsTable(mount) {
+    if (!mount) return;
+    const statusChipMap = { active: "active", overdue: "in_progress", at_risk: "blocked" };
+    let rows = M.accountsWithHealth();
+    if (acctFilter !== "all") rows = rows.filter(function (a) { return a.status === acctFilter; });
+    rows.sort(function (a, b) {
+      if (acctSort === "overdue") return b.daysOverdue - a.daysOverdue || b.annualSpend - a.annualSpend;
+      if (acctSort === "sow") return a.shareOfWallet - b.shareOfWallet;
+      return b.annualSpend - a.annualSpend;
+    });
+    mount.innerHTML = "";
+    const t = h("table", { class: "matrix" });
+    t.appendChild(h("thead", null, h("tr", null, [th("Account"), th("Tier"), th("Region"), th("Owner"), th("Book value"), th("Last order"), th("Cadence"), th("Status"), th("Share of wallet")])));
+    const tb = h("tbody");
+    rows.forEach(function (a) {
+      tb.appendChild(h("tr", null, [
+        h("td", { class: "strong" }, [document.createTextNode(a.name), a.newThisQtr ? h("span", { class: "tier-tag", style: "margin-left:8px;color:var(--done);border-color:var(--done)" }, "new") : null]),
+        h("td", null, h("span", { class: "tier-tag " + a.tier }, a.tier)),
+        h("td", null, h("span", { class: "acct-region" }, a.region)),
+        h("td", { class: "mono", style: "font-size:10px" }, a.owner),
+        h("td", { class: "num-cell strong" }, money(a.annualSpend)),
+        h("td", { class: "mono", style: "font-size:10px" }, a.lastOrder.slice(5)),
+        h("td", { class: "num-cell", style: "color:var(--muted)" }, a.daysSince + "/" + a.cadenceDays + "d"),
+        h("td", null, chip(statusChipMap[a.status], a.status === "at_risk" ? "At risk" : a.status === "overdue" ? "Overdue" : "Active")),
+        h("td", null, [h("span", { class: "sow-bar" }, [h("span", { style: "width:" + a.shareOfWallet + "%" })]), h("span", { class: "sow-label" }, a.shareOfWallet + "%")]),
+      ]));
+    });
+    t.appendChild(tb);
+    mount.appendChild(t);
+    if (!rows.length) mount.appendChild(h("div", { class: "note-line" }, "No accounts in this state."));
+  }
+
+  function fuzeTable() {
+    const statusChipMap = { "Queued": "not_started", "Design approval": "scheduled", "In production": "in_progress", "Shipping": "active", "Delivered": "done" };
+    const t = h("table", { class: "matrix" });
+    t.appendChild(h("thead", null, h("tr", null, [th("Account"), th("Value"), th("Due"), th("Lead"), th("Status")])));
+    const tb = h("tbody");
+    M.fuzeWithLead().slice().sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : 1; }).forEach(function (o) {
+      const tight = o.weeksToDue < o.lead - 0.5;
+      tb.appendChild(h("tr", null, [
+        h("td", { class: "strong" }, o.account),
+        h("td", { class: "num-cell" }, money(o.value)),
+        h("td", { class: "mono", style: "font-size:10px" }, o.dueDate.slice(5)),
+        h("td", { class: "num-cell" + (tight ? " ceiling" : ""), style: "font-size:12px" }, o.weeksToDue + "w left"),
+        h("td", null, chip(statusChipMap[o.status], o.status)),
+      ]));
+    });
+    t.appendChild(tb);
+    return t;
+  }
+  function capacityChart() {
+    const weeks = M.fuzeCapacityByWeek();
+    const max = Math.max(weeks.reduce(function (m, w) { return Math.max(m, w.load); }, 0), weeks[0] ? weeks[0].ceiling : 1);
+    const wrap = h("div", { class: "chart-wrap" });
+    wrap.appendChild(h("div", { class: "mono", style: "margin-bottom:20px" }, "/ PRODUCTION LOAD BY WEEK"));
+    weeks.forEach(function (w) {
+      wrap.appendChild(h("div", { class: "cap-row" }, [
+        h("div", { class: "cap-head" }, [
+          h("span", null, "Week of " + w.week.slice(5)),
+          h("span", { class: w.over ? "over" : "" }, money(w.load) + (w.over ? "  over" : "") + "  /  " + w.items + " orders"),
+        ]),
+        h("div", { class: "cap-track" }, [
+          h("span", { class: w.over ? "over" : "", "data-w": Math.round((w.load / max) * 100) }),
+          h("span", { class: "ceil", "data-ceil": Math.round((w.ceiling / max) * 100) }),
+        ]),
+      ]));
+    });
+    wrap.appendChild(h("p", { style: "margin-top:6px;font-size:13px;color:var(--muted)" }, "Capacity ceiling " + money(weeks[0] ? weeks[0].ceiling : 0) + " per week. Move design-approval orders forward before a peak week locks up."));
+    return wrap;
+  }
+
+  function seasonalityHeat() {
+    const wrap = h("div", { class: "panel" });
+    const grid = h("div", { class: "heat" });
+    window.AVBAccounts.seasonality.forEach(function (m) {
+      const op = 0.12 + (m.idx / 100) * 0.8;
+      grid.appendChild(h("div", { class: "heat-cell" + (m.here ? " here" : ""), style: "background:rgba(200,16,46," + op.toFixed(2) + ")" }, [
+        h("div", { class: "hm", style: m.idx > 60 ? "color:var(--white)" : "" }, m.m),
+        h("div", { class: "hv", style: m.idx > 60 ? "color:var(--white)" : "" }, String(m.idx)),
+        h("div", { class: "hn", style: m.idx > 60 ? "color:rgba(255,255,255,.85)" : "" }, m.note || ""),
+      ]));
+    });
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  /* ============================================================
      ROUTER
      ============================================================ */
   const ROUTES = {
     "/overview": { label: "OVERVIEW", render: viewOverview },
+    "/accounts": { label: "ACCOUNTS", render: viewAccounts },
     "/rocks": { label: "ROCKS", render: viewRocks },
     "/june": { label: "JUNE", render: viewJune },
     "/campaigns": { label: "CAMPAIGNS", render: viewCampaigns },
@@ -1097,64 +1366,218 @@
     "/content": { label: "CONTENT", render: viewContent },
   };
 
-  function currentPath() {
-    const hash = location.hash.replace(/^#/, "");
-    return ROUTES[hash] ? hash : "/overview";
-  }
-  function render() {
-    const path = currentPath();
-    const main = document.getElementById("main");
-    main.innerHTML = "";
-    main.appendChild(ROUTES[path].render());
-    document.querySelectorAll(".nav a").forEach(function (a) {
-      a.classList.toggle("active", a.getAttribute("href") === "#" + path);
-    });
-    document.querySelector(".nav").classList.remove("open");
-    main.scrollTop = 0; window.scrollTo(0, 0);
+  /* ============================================================
+     CARPLAY-STYLE SHELL: springboard + zoom-open app screens
+     ============================================================ */
+
+  // Inline icon set (24x24, stroke = currentColor).
+  function icon(name) {
+    const P = {
+      overview: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      accounts: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+      rocks: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+      june: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+      campaigns: '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+      promos: '<path d="M20.6 13.4 13 21l-9-9V4h8z"/><circle cx="8.5" cy="8.5" r="1.4"/>',
+      budget: '<path d="M3 21h18"/><rect x="5" y="11" width="3.5" height="8"/><rect x="10.5" y="6" width="3.5" height="13"/><rect x="16" y="14" width="3.5" height="5"/>',
+      automation: '<path d="M13 2 4.5 13.5H11l-1 8.5L19.5 10H13z"/>',
+      content: '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="8.5" cy="9" r="1.6"/><path d="m4 17 5-4 4 3 3-2 4 3"/>',
+      home: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      back: '<path d="M15 18l-6-6 6-6"/>',
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (P[name] || "") + "</svg>";
   }
 
-  window.addEventListener("hashchange", render);
-  document.addEventListener("DOMContentLoaded", function () {
-    buildNav();
-    buildRail();
-    render();
-  });
+  function shortMoney(n) {
+    if (n >= 1000000) return "$" + (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (n >= 1000) return "$" + Math.round(n / 1000) + "K";
+    return "$" + n;
+  }
 
-  function buildNav() {
-    const nav = document.querySelector(".nav");
-    const navItems = [
-      ["/overview", "OVERVIEW"], ["/rocks", "ROCKS"], ["/june", "JUNE"], ["/campaigns", "CAMPAIGNS"],
-      ["/promos", "PROMOS"], ["/budget", "BUDGET"], ["/automation", "AUTOMATION"], ["/content", "CONTENT"],
-    ];
-    nav.appendChild(h("div", { class: "nav-group-label" }, [h("span", { class: "mono" }, "/ VIEWS")]));
-    // badge counts for exposed items
+  // Live glance + badge per app, computed from the data.
+  function glances() {
     const flagged = D.campaigns.teams.emails.filter(function (e) { return e.status === "placeholder_flagged"; }).length;
     const blocked = D.rocks.reduce(function (a, r) { return a + countStatus(rockLeaves(r), "blocked"); }, 0);
-    navItems.forEach(function (it) {
-      const a = h("a", { href: "#" + it[0] }, [h("span", { class: "slash" }, "/"), document.createTextNode(it[1])]);
-      if (it[0] === "/campaigns" && flagged) a.appendChild(h("span", { class: "badge" }, String(flagged)));
-      if (it[0] === "/rocks" && blocked) a.appendChild(h("span", { class: "badge" }, String(blocked)));
-      nav.appendChild(a);
-    });
-    nav.appendChild(h("div", { class: "nav-foot" }, [
-      h("p", { class: "phrase" }, "Volleyball only. That is the whole business."),
-    ]));
+    const allLeaves = D.rocks.reduce(function (a, r) { return a.concat(rockLeaves(r)); }, []);
+    const rockPctAll = (function () { const w = { done: 1, in_progress: 0.5, blocked: 0.15, not_started: 0 };
+      return Math.round(allLeaves.reduce(function (s, l) { return s + (w[l.status] || 0); }, 0) / allLeaves.length * 100); })();
+    const m = window.AVBMetrics ? window.AVBMetrics.summary() : null;
+    const atRisk = window.AVBMetrics ? window.AVBMetrics.atRisk().length : 0;
+    const bud = D.budget.channels.reduce(function (s, c) { return s + c.monthly; }, 0);
+    const j = window.AVBJune ? window.AVBJune.counts : null;
+    const activePromos = D.promos.filter(function (p) { return p.status === "active"; }).length;
+    return {
+      overview: { glance: "Q2 / " + D.rocks.length + " ROCKS", badge: null },
+      accounts: { glance: (m ? shortMoney(m.bookValue) + " BOOK" : "BOOK OF BUSINESS"), badge: atRisk || null },
+      rocks: { glance: rockPctAll + "% / " + blocked + " BLOCKED", badge: blocked || null },
+      june: { glance: (j ? j.teams + j.retail + j.customfuze : 0) + " SENDS / " + (j ? j.socialPosts : 0) + " POSTS", badge: null },
+      campaigns: { glance: D.campaigns.teams.emails.length + " EMAILS / " + flagged + " FLAGGED", badge: flagged || null },
+      promos: { glance: activePromos + " ACTIVE / 1 ENDED", badge: null },
+      budget: { glance: shortMoney(bud) + " / MO", badge: null },
+      automation: { glance: D.automation.live.length + " LIVE / " + D.automation.backlog.length + " IDEAS", badge: null },
+      content: { glance: "UGC / 5 PILLARS", badge: null },
+    };
   }
 
-  function buildRail() {
-    const right = document.querySelector(".rail-right");
-    const sync = document.getElementById("sync-time");
+  const APP_ORDER = [
+    { key: "overview", color: "ink" },
+    { key: "accounts", color: "red" },
+    { key: "rocks", color: "cream" },
+    { key: "june", color: "ink" },
+    { key: "campaigns", color: "cream" },
+    { key: "promos", color: "red" },
+    { key: "budget", color: "ink" },
+    { key: "automation", color: "cream" },
+    { key: "content", color: "cream" },
+  ];
+
+  let stageEl, springboardEl, appScreen, appInner, dockHome, currentApp = null, animating = false;
+
+  function greeting() {
+    const hr = new Date().getHours();
+    return hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+  }
+
+  function buildSpringboard() {
+    springboardEl.innerHTML = "";
+    springboardEl.appendChild(h("div", { class: "sb-hello" }, [
+      h("div", { class: "mono" }, "/ MARKETING OS  ·  Q2"),
+      h("h2", null, [document.createTextNode(greeting() + ", team. "), h("span", { class: "accent" }, "Volleyball only.")]),
+    ]));
+    const g = glances();
+    const grid = h("div", { class: "tile-grid" });
+    APP_ORDER.forEach(function (app, i) {
+      const meta = ROUTES["/" + app.key];
+      const info = g[app.key] || { glance: "", badge: null };
+      const tileEl = h("button", { class: "app-tile " + app.color, "data-key": app.key, style: "animation-delay:" + (i * 45) + "ms" }, [
+        h("div", { class: "ti-icon", html: icon(app.key) }),
+        h("div", { class: "ti-spacer" }),
+        h("div", { class: "ti-name" }, titleOf(app.key)),
+        h("div", { class: "ti-glance" }, info.glance),
+      ]);
+      if (info.badge) tileEl.appendChild(h("span", { class: "ti-badge" }, String(info.badge)));
+      tileEl.addEventListener("click", function () { location.hash = "#/" + app.key; });
+      grid.appendChild(tileEl);
+    });
+    springboardEl.appendChild(grid);
+  }
+  function titleOf(key) {
+    return { overview: "Overview", accounts: "Accounts", rocks: "Rocks", june: "June Plan",
+      campaigns: "Campaigns", promos: "Promos", budget: "Budget", automation: "Automation", content: "Content" }[key];
+  }
+  function colorOf(key) { const a = APP_ORDER.find(function (x) { return x.key === key; }); return a ? a.color : "ink"; }
+
+  function buildAppContent(key) {
+    appInner.innerHTML = "";
+    const bar = h("div", { class: "app-bar" }, [
+      h("button", { class: "back", onclick: goHome }, [h("span", { html: icon("back") }), document.createTextNode("Home")]),
+      h("span", { class: "ab-icon", html: icon(key) }),
+      h("span", { class: "ab-title" }, "/ " + (ROUTES["/" + key].label)),
+    ]);
+    appInner.appendChild(bar);
+    appInner.appendChild(ROUTES["/" + key].render());
+    appInner.scrollTop = 0;
+  }
+
+  function tileRectFor(key) {
+    const t = springboardEl.querySelector('.app-tile[data-key="' + key + '"]');
+    const sr = stageEl.getBoundingClientRect();
+    if (!t) return { dx: sr.width / 2, dy: sr.height / 2, sx: 0.1, sy: 0.1 };
+    const r = t.getBoundingClientRect();
+    return { dx: r.left - sr.left, dy: r.top - sr.top, sx: r.width / sr.width, sy: r.height / sr.height };
+  }
+
+  function openApp(key, fromHome) {
+    if (!ROUTES["/" + key]) { goHome(); return; }
+    buildAppContent(key);
+    if (!fromHome) {
+      // app-to-app switch: quick crossfade, no zoom
+      appScreen.style.transition = "none";
+      appScreen.style.transform = "none"; appScreen.style.borderRadius = "0px";
+      appScreen.classList.add("open");
+      requestAnimationFrame(function () { appScreen.classList.add("shown"); });
+      currentApp = key; setActive(key); return;
+    }
+    const o = tileRectFor(key);
+    appScreen.style.transition = "none";
+    appScreen.style.transformOrigin = "top left";
+    appScreen.style.transform = "translate(" + o.dx + "px," + o.dy + "px) scale(" + o.sx + "," + o.sy + ")";
+    appScreen.style.borderRadius = "22px";
+    appScreen.classList.add("open");
+    springboardEl.classList.add("dim");
+    animating = true;
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      appScreen.style.transition = "transform .52s cubic-bezier(.2,.8,.2,1), border-radius .52s cubic-bezier(.2,.8,.2,1)";
+      appScreen.style.transform = "translate(0,0) scale(1,1)";
+      appScreen.style.borderRadius = "0px";
+      appScreen.classList.add("shown");
+    }); });
+    window.setTimeout(function () { animating = false; }, 560);
+    currentApp = key; setActive(key);
+  }
+
+  function goHome() {
+    if (location.hash !== "" && location.hash !== "#/home") { location.hash = "#/home"; return; }
+    closeApp();
+  }
+  function closeApp() {
+    if (!currentApp) { setActive(null); return; }
+    const o = tileRectFor(currentApp);
+    appScreen.classList.remove("shown");
+    appScreen.style.transition = "transform .42s cubic-bezier(.4,0,.2,1), border-radius .42s, opacity .34s .08s";
+    appScreen.style.transform = "translate(" + o.dx + "px," + o.dy + "px) scale(" + o.sx + "," + o.sy + ")";
+    appScreen.style.borderRadius = "22px";
+    appScreen.style.opacity = "0";
+    springboardEl.classList.remove("dim");
+    const finish = function () {
+      appScreen.classList.remove("open");
+      appScreen.style.opacity = ""; appScreen.style.transition = "none";
+      appScreen.style.transform = ""; appScreen.style.borderRadius = "";
+      appInner.innerHTML = "";
+      appScreen.removeEventListener("transitionend", finish);
+    };
+    appScreen.addEventListener("transitionend", finish);
+    currentApp = null; setActive(null);
+  }
+  function setActive(key) {
+    dockHome.classList.toggle("on", !key);
+  }
+
+  function route() {
+    const hash = location.hash.replace(/^#\//, "");
+    if (!hash || hash === "home" || !ROUTES["/" + hash]) { closeApp(); return; }
+    if (currentApp === hash) return;
+    openApp(hash, currentApp === null);
+  }
+
+  function clock() {
+    const c = document.getElementById("clock"), dc = document.getElementById("dock-clock");
     function stamp() {
       const d = new Date();
       const hh = String(d.getHours()).padStart(2, "0");
       const mm = String(d.getMinutes()).padStart(2, "0");
       const ss = String(d.getSeconds()).padStart(2, "0");
-      sync.textContent = hh + ":" + mm + ":" + ss;
+      if (c) c.textContent = hh + ":" + mm + ":" + ss;
+      if (dc) dc.textContent = hh + ":" + mm;
     }
-    stamp();
-    setInterval(stamp, 1000);
-    document.querySelector(".rail-menu").addEventListener("click", function () {
-      document.querySelector(".nav").classList.toggle("open");
-    });
+    stamp(); setInterval(stamp, 1000);
   }
+
+  function init() {
+    stageEl = document.querySelector(".stage");
+    springboardEl = document.getElementById("springboard");
+    appScreen = document.getElementById("app-screen");
+    appInner = document.getElementById("app-inner");
+    dockHome = document.getElementById("dock-home");
+    dockHome.innerHTML = icon("home");
+    dockHome.addEventListener("click", goHome);
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && currentApp) goHome(); });
+    buildSpringboard();
+    clock();
+    window.addEventListener("hashchange", route);
+    route(); // honor deep links on load
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 })();
