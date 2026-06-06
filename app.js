@@ -318,28 +318,25 @@
      VIEW: CAMPAIGNS
      ============================================================ */
   let campaignFilter = "all";
-  function viewCampaigns() {
+  // --- Campaigns sub-modules (the Campaigns folder of tiles) ---
+  function viewCampaignsKlaviyo() {
     const v = h("div", { class: "view" });
-    v.appendChild(head("CAMPAIGNS", "Email and content pipeline",
-      "Teams 10-email A/B arc and the parallel Retail track. Every subject line runs through the discipline scanner. Klaviyo metrics wire to the connector with a seed fallback."));
-
-    // Klaviyo KPI strip
-    v.appendChild(sectionLabel("KLAVIYO METRICS"));
+    v.appendChild(head("CAMPAIGNS / KLAVIYO", "Klaviyo performance",
+      "Send metrics for the email program. Wires to the connector with a seed fallback."));
     const k = D.klaviyo;
-    const kp = h("div", { class: "grid g4" }, [
+    v.appendChild(h("div", { class: "grid g4" }, [
       kpiTile("OPEN RATE", k.openRate + "%", k.openDelta),
       kpiTile("CLICK RATE", k.clickRate + "%", k.clickDelta),
       kpiTile("REVENUE", money(k.revenue), k.revenueDelta, true),
       kpiTile("RECIPIENTS", k.recipients.toLocaleString("en-US"), null),
-    ]);
-    v.appendChild(kp);
+    ]));
     v.appendChild(h("div", { class: "note-line" }, "Source: " + k.source + ". Set KLAVIYO_API_KEY to pull live. Revenue is a placeholder figure."));
-
-    // Teams arc
-    v.appendChild(sectionLabel("Q2 TEAMS REPOSITIONING"));
-    v.appendChild(h("p", { class: "lede", style: "margin-top:-6px;margin-bottom:18px" }, D.campaigns.teams.meta + " Platform: " + D.campaigns.teams.platform + "."));
-
-    // filter bar
+    return v;
+  }
+  function viewCampaignsTeams() {
+    const v = h("div", { class: "view" });
+    v.appendChild(head("CAMPAIGNS / TEAMS", "Teams repositioning",
+      "The Q2 10-email A/B arc. Every subject line runs through the discipline scanner. " + D.campaigns.teams.meta + " Platform: " + D.campaigns.teams.platform + "."));
     const counts = D.campaigns.teams.emails;
     const fb = h("div", { class: "filterbar" });
     fb.appendChild(h("span", { class: "fb-label" }, "Filter"));
@@ -350,26 +347,24 @@
       fb.appendChild(b);
     });
     v.appendChild(fb);
-
     const list = h("div");
     v.appendChild(list);
     function renderEmails() {
       list.innerHTML = "";
       const rows = D.campaigns.teams.emails.filter(function (e) { return campaignFilter === "all" || e.status === campaignFilter; });
       if (!rows.length) { list.appendChild(h("div", { class: "note-line" }, "No emails in this state.")); return; }
-      rows.forEach(function (e) {
-        list.appendChild(emailRow(e));
-      });
+      rows.forEach(function (e) { list.appendChild(emailRow(e)); });
     }
     renderEmails();
-
-    // Retail track
-    v.appendChild(sectionLabel("RETAIL EMAIL TRACK"));
-    v.appendChild(h("p", { class: "lede", style: "margin-top:-6px;margin-bottom:18px" }, D.campaigns.retail.meta + " Platform: " + D.campaigns.retail.platform + "."));
+    return v;
+  }
+  function viewCampaignsRetail() {
+    const v = h("div", { class: "view" });
+    v.appendChild(head("CAMPAIGNS / RETAIL", "Retail email track",
+      "The parallel, product-forward retail track. " + D.campaigns.retail.meta + " Platform: " + D.campaigns.retail.platform + "."));
     const rlist = h("div");
     D.campaigns.retail.emails.forEach(function (e) { rlist.appendChild(emailRow(e)); });
     v.appendChild(rlist);
-
     return v;
   }
   function kpiTile(label, num, delta, isRev) {
@@ -1354,17 +1349,27 @@
   /* ============================================================
      ROUTER
      ============================================================ */
-  const ROUTES = {
-    "/overview": { label: "OVERVIEW", render: viewOverview },
-    "/accounts": { label: "ACCOUNTS", render: viewAccounts },
-    "/rocks": { label: "ROCKS", render: viewRocks },
-    "/june": { label: "JUNE", render: viewJune },
-    "/campaigns": { label: "CAMPAIGNS", render: viewCampaigns },
-    "/promos": { label: "PROMOS", render: viewPromos },
-    "/budget": { label: "BUDGET", render: viewBudget },
-    "/automation": { label: "AUTOMATION", render: viewAutomation },
-    "/content": { label: "CONTENT", render: viewContent },
-  };
+  // Navigation TREE. A node is a leaf (has render) or a folder (has children).
+  // Add child tiles here as the system grows; the shell handles the rest.
+  const NAV = [
+    { key: "overview", title: "Overview", label: "OVERVIEW", color: "ink", icon: "overview", render: viewOverview },
+    { key: "accounts", title: "Accounts", label: "ACCOUNTS", color: "red", icon: "accounts", render: viewAccounts },
+    { key: "rocks", title: "Rocks", label: "ROCKS", color: "cream", icon: "rocks", render: viewRocks },
+    { key: "june", title: "June Plan", label: "JUNE", color: "ink", icon: "june", render: viewJune },
+    { key: "campaigns", title: "Campaigns", label: "CAMPAIGNS", color: "cream", icon: "campaigns", children: [
+      { key: "teams", title: "Teams Repositioning", label: "TEAMS", color: "red", icon: "campaigns", render: viewCampaignsTeams,
+        glance: function () { var f = D.campaigns.teams.emails.filter(function (e) { return e.status === "placeholder_flagged"; }).length; return D.campaigns.teams.emails.length + " EMAILS / " + f + " FLAGGED"; },
+        badge: function () { return D.campaigns.teams.emails.filter(function (e) { return e.status === "placeholder_flagged"; }).length || null; } },
+      { key: "retail", title: "Retail Track", label: "RETAIL", color: "cream", icon: "campaigns", render: viewCampaignsRetail,
+        glance: function () { return D.campaigns.retail.emails.length + " EMAILS"; } },
+      { key: "klaviyo", title: "Klaviyo Performance", label: "KLAVIYO", color: "ink", icon: "budget", render: viewCampaignsKlaviyo,
+        glance: function () { return D.klaviyo.openRate + "% OPEN / " + D.klaviyo.clickRate + "% CLICK"; } },
+    ]},
+    { key: "promos", title: "Promos", label: "PROMOS", color: "red", icon: "promos", render: viewPromos },
+    { key: "budget", title: "Budget", label: "BUDGET", color: "ink", icon: "budget", render: viewBudget },
+    { key: "automation", title: "Automation", label: "AUTOMATION", color: "cream", icon: "automation", render: viewAutomation },
+    { key: "content", title: "Content", label: "CONTENT", color: "cream", icon: "content", render: viewContent },
+  ];
 
   /* ============================================================
      CARPLAY-STYLE SHELL: springboard + zoom-open app screens
@@ -1419,23 +1424,43 @@
     };
   }
 
-  const APP_ORDER = [
-    { key: "overview", color: "ink" },
-    { key: "accounts", color: "red" },
-    { key: "rocks", color: "cream" },
-    { key: "june", color: "ink" },
-    { key: "campaigns", color: "cream" },
-    { key: "promos", color: "red" },
-    { key: "budget", color: "ink" },
-    { key: "automation", color: "cream" },
-    { key: "content", color: "cream" },
-  ];
-
-  let stageEl, springboardEl, appScreen, appInner, dockHome, currentApp = null, animating = false;
+  let stageEl, springboardEl, appScreen, appInner, dockHome, currentPath = [];
 
   function greeting() {
     const hr = new Date().getHours();
     return hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+  }
+
+  // --- tree helpers ---
+  function nodeAt(path) {
+    let level = NAV, node = null;
+    for (let i = 0; i < path.length; i++) {
+      node = null;
+      for (let j = 0; j < level.length; j++) { if (level[j].key === path[i]) { node = level[j]; break; } }
+      if (!node) return null;
+      level = node.children || [];
+    }
+    return node;
+  }
+  function pathFromHash() {
+    const hsh = location.hash.replace(/^#\/?/, "");
+    if (!hsh || hsh === "home") return [];
+    return hsh.split("/").filter(Boolean);
+  }
+
+  function tileEl(node, onClick, i) {
+    const gl = typeof node.glance === "function" ? node.glance() : (glances()[node.key] ? glances()[node.key].glance : "");
+    const el = h("button", { class: "app-tile " + (node.color || "ink"), "data-key": node.key, style: "animation-delay:" + (i * 45) + "ms" }, [
+      h("div", { class: "ti-icon", html: icon(node.icon) }),
+      h("div", { class: "ti-spacer" }),
+      h("div", { class: "ti-name" }, node.title),
+      h("div", { class: "ti-glance" }, gl),
+    ]);
+    let bd = typeof node.badge === "function" ? node.badge() : (glances()[node.key] ? glances()[node.key].badge : null);
+    if (bd) el.appendChild(h("span", { class: "ti-badge" }, String(bd)));
+    if (node.children) el.appendChild(h("span", { class: "ti-sub" }, node.children.length + " ›"));
+    el.addEventListener("click", onClick);
+    return el;
   }
 
   function buildSpringboard() {
@@ -1444,38 +1469,53 @@
       h("div", { class: "mono" }, "/ MARKETING OS  ·  Q2"),
       h("h2", null, [document.createTextNode(greeting() + ", team. "), h("span", { class: "accent" }, "Volleyball only.")]),
     ]));
-    const g = glances();
     const grid = h("div", { class: "tile-grid" });
-    APP_ORDER.forEach(function (app, i) {
-      const meta = ROUTES["/" + app.key];
-      const info = g[app.key] || { glance: "", badge: null };
-      const tileEl = h("button", { class: "app-tile " + app.color, "data-key": app.key, style: "animation-delay:" + (i * 45) + "ms" }, [
-        h("div", { class: "ti-icon", html: icon(app.key) }),
-        h("div", { class: "ti-spacer" }),
-        h("div", { class: "ti-name" }, titleOf(app.key)),
-        h("div", { class: "ti-glance" }, info.glance),
-      ]);
-      if (info.badge) tileEl.appendChild(h("span", { class: "ti-badge" }, String(info.badge)));
-      tileEl.addEventListener("click", function () { location.hash = "#/" + app.key; });
-      grid.appendChild(tileEl);
+    NAV.forEach(function (node, i) {
+      grid.appendChild(tileEl(node, function () { location.hash = "#/" + node.key; }, i));
     });
     springboardEl.appendChild(grid);
   }
-  function titleOf(key) {
-    return { overview: "Overview", accounts: "Accounts", rocks: "Rocks", june: "June Plan",
-      campaigns: "Campaigns", promos: "Promos", budget: "Budget", automation: "Automation", content: "Content" }[key];
-  }
-  function colorOf(key) { const a = APP_ORDER.find(function (x) { return x.key === key; }); return a ? a.color : "ink"; }
 
-  function buildAppContent(key) {
+  function subGrid(node, path) {
+    const wrap = h("div", { class: "view sub-board" });
+    wrap.appendChild(h("div", { class: "sb-hello" }, [
+      h("div", { class: "mono" }, "/ " + node.label + "  ·  " + node.children.length + " SECTIONS"),
+      h("h2", null, [document.createTextNode(node.title + ". "), h("span", { class: "accent" }, "Pick a section.")]),
+    ]));
+    const grid = h("div", { class: "tile-grid" });
+    node.children.forEach(function (ch, i) {
+      const childPath = path.concat(ch.key);
+      grid.appendChild(tileEl(ch, function () { location.hash = "#/" + childPath.join("/"); }, i));
+    });
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function buildBar(path) {
+    const top = nodeAt([path[0]]);
+    const bar = h("div", { class: "app-bar" });
+    bar.appendChild(h("button", { class: "back", onclick: goUp }, [h("span", { html: icon("back") }), document.createTextNode(path.length > 1 ? "Back" : "Home")]));
+    bar.appendChild(h("span", { class: "ab-icon", html: icon(top.icon) }));
+    const crumbs = h("span", { class: "ab-crumb" });
+    crumbs.appendChild(h("a", { href: "#/home", class: "cr" }, "Home"));
+    let acc = [];
+    path.forEach(function (seg, idx) {
+      acc = acc.concat(seg);
+      const node = nodeAt(acc);
+      crumbs.appendChild(h("span", { class: "cr-sep" }, "›"));
+      if (idx === path.length - 1) crumbs.appendChild(h("span", { class: "cr cur" }, node.title));
+      else { const a2 = acc.slice(); crumbs.appendChild(h("a", { href: "#/" + a2.join("/"), class: "cr" }, node.title)); }
+    });
+    bar.appendChild(crumbs);
+    return bar;
+  }
+
+  function buildAppContent(path) {
     appInner.innerHTML = "";
-    const bar = h("div", { class: "app-bar" }, [
-      h("button", { class: "back", onclick: goHome }, [h("span", { html: icon("back") }), document.createTextNode("Home")]),
-      h("span", { class: "ab-icon", html: icon(key) }),
-      h("span", { class: "ab-title" }, "/ " + (ROUTES["/" + key].label)),
-    ]);
-    appInner.appendChild(bar);
-    appInner.appendChild(ROUTES["/" + key].render());
+    appInner.appendChild(buildBar(path));
+    const node = nodeAt(path);
+    if (node && node.children) appInner.appendChild(subGrid(node, path));
+    else if (node && node.render) appInner.appendChild(node.render());
     appInner.scrollTop = 0;
   }
 
@@ -1487,42 +1527,33 @@
     return { dx: r.left - sr.left, dy: r.top - sr.top, sx: r.width / sr.width, sy: r.height / sr.height };
   }
 
-  function openApp(key, fromHome) {
-    if (!ROUTES["/" + key]) { goHome(); return; }
-    buildAppContent(key);
-    if (!fromHome) {
-      // app-to-app switch: quick crossfade, no zoom
-      appScreen.style.transition = "none";
-      appScreen.style.transform = "none"; appScreen.style.borderRadius = "0px";
-      appScreen.classList.add("open");
-      requestAnimationFrame(function () { appScreen.classList.add("shown"); });
-      currentApp = key; setActive(key); return;
-    }
-    const o = tileRectFor(key);
+  function openZoom(path) {
+    buildAppContent(path);
+    const o = tileRectFor(path[0]);
     appScreen.style.transition = "none";
     appScreen.style.transformOrigin = "top left";
+    appScreen.style.opacity = "";
     appScreen.style.transform = "translate(" + o.dx + "px," + o.dy + "px) scale(" + o.sx + "," + o.sy + ")";
     appScreen.style.borderRadius = "22px";
     appScreen.classList.add("open");
     springboardEl.classList.add("dim");
-    animating = true;
     requestAnimationFrame(function () { requestAnimationFrame(function () {
       appScreen.style.transition = "transform .52s cubic-bezier(.2,.8,.2,1), border-radius .52s cubic-bezier(.2,.8,.2,1)";
       appScreen.style.transform = "translate(0,0) scale(1,1)";
       appScreen.style.borderRadius = "0px";
       appScreen.classList.add("shown");
     }); });
-    window.setTimeout(function () { animating = false; }, 560);
-    currentApp = key; setActive(key);
   }
 
-  function goHome() {
-    if (location.hash !== "" && location.hash !== "#/home") { location.hash = "#/home"; return; }
-    closeApp();
+  function swapContent(path) {
+    buildAppContent(path);
+    appScreen.classList.remove("shown");
+    void appScreen.offsetWidth; // reflow so the fade replays
+    requestAnimationFrame(function () { appScreen.classList.add("shown"); });
   }
-  function closeApp() {
-    if (!currentApp) { setActive(null); return; }
-    const o = tileRectFor(currentApp);
+
+  function closeApp(key) {
+    const o = tileRectFor(key);
     appScreen.classList.remove("shown");
     appScreen.style.transition = "transform .42s cubic-bezier(.4,0,.2,1), border-radius .42s, opacity .34s .08s";
     appScreen.style.transform = "translate(" + o.dx + "px," + o.dy + "px) scale(" + o.sx + "," + o.sy + ")";
@@ -1537,17 +1568,28 @@
       appScreen.removeEventListener("transitionend", finish);
     };
     appScreen.addEventListener("transitionend", finish);
-    currentApp = null; setActive(null);
-  }
-  function setActive(key) {
-    dockHome.classList.toggle("on", !key);
   }
 
+  function goHome() { location.hash = "#/home"; }
+  function goUp() {
+    const p = currentPath;
+    if (p.length <= 1) location.hash = "#/home";
+    else location.hash = "#/" + p.slice(0, -1).join("/");
+  }
+  function setActive(key) { dockHome.classList.toggle("on", !key); }
+
   function route() {
-    const hash = location.hash.replace(/^#\//, "");
-    if (!hash || hash === "home" || !ROUTES["/" + hash]) { closeApp(); return; }
-    if (currentApp === hash) return;
-    openApp(hash, currentApp === null);
+    const newPath = pathFromHash();
+    if (newPath.length && !nodeAt(newPath)) { location.hash = "#/home"; return; }
+    const prev = currentPath;
+    if (newPath.length === 0) {
+      if (prev.length) closeApp(prev[0]);
+      currentPath = []; setActive(null); return;
+    }
+    if (prev.length === 0) { currentPath = newPath; openZoom(newPath); }
+    else if (prev.join("/") !== newPath.join("/")) { currentPath = newPath; swapContent(newPath); }
+    else { currentPath = newPath; }
+    setActive(newPath[0]);
   }
 
   function clock() {
@@ -1570,6 +1612,20 @@
     stamp(); setInterval(stamp, 1000);
   }
 
+  function setupLogin() {
+    const login = document.getElementById("login");
+    if (!login) return;
+    const form = document.getElementById("login-form");
+    const user = document.getElementById("login-user");
+    function enter(e) {
+      if (e) e.preventDefault();
+      login.classList.add("gone");
+      window.setTimeout(function () { login.style.display = "none"; }, 650);
+    }
+    if (form) form.addEventListener("submit", enter);
+    if (user) { try { user.focus(); } catch (e) {} }
+  }
+
   function init() {
     stageEl = document.querySelector(".stage");
     springboardEl = document.getElementById("springboard");
@@ -1578,9 +1634,10 @@
     dockHome = document.getElementById("dock-home");
     dockHome.innerHTML = icon("home");
     dockHome.addEventListener("click", goHome);
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && currentApp) goHome(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && currentPath.length) goUp(); });
     buildSpringboard();
     clock();
+    setupLogin();
     window.addEventListener("hashchange", route);
     route(); // honor deep links on load
   }
